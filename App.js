@@ -5,7 +5,7 @@ import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 //Components
 import MainMenu from './src/Screens/MainMenu.jsx';
-import GenerateScreen from './src/Screens/GenerateScreen.jsx';
+import {GenerateScreen} from './src/Screens/GenerateScreen.jsx';
 import ScanScreen from './src/Screens/ScanScreen.jsx';
 
 const Stack = createNativeStackNavigator();

@@ -1,36 +1,33 @@
-import React, {useState, useRef, useEffect} from 'react';
+import CameraRoll from '@react-native-community/cameraroll';
+import React, {useRef, useState} from 'react';
 import {
-  Text,
-  PermissionsAndroid,
-  Alert,
-  View,
-  StyleSheet,
-  Modal,
-  TextInput,
-  TouchableWithoutFeedback,
+  Alert, Modal, PermissionsAndroid,
+  StyleSheet, Text, TextInput, ToastAndroid, TouchableWithoutFeedback, View
 } from 'react-native';
 import {Button} from 'react-native-elements';
-import QRCode from 'react-native-qrcode-svg';
-import {generateToken,flushDB, saveToken, verifyToken, removeToken, importDB, exportDB} from '../services';
-import {captureRef} from 'react-native-view-shot';
-import CameraRoll from '@react-native-community/cameraroll';
 import QRCodeScanner from 'react-native-qrcode-scanner';
+import QRCode from 'react-native-qrcode-svg';
+import {captureRef} from 'react-native-view-shot';
+import {verifyToken, removeToken, exportDB, generateToken, importDB, saveToken} from '../services';
 
 const MainMenu = ({navigation}) => {
-  const [showGenerate, setShowGenerate] = useState(false);
+  //====================  STATE VARIABLEs  =====================//
+  const [iE, setShowImportExport] = useState(false);
+  const [db, setDB] = useState('');
+  const [finalData, setFinalData] = useState({});
   const [showQR, setShowQR] = useState(false);
   const [name, setName] = useState(null);
   const [num, setNum] = useState(null);
-  const [finalData, setFinalData] = useState(null);
-  const [showScanner, setShowScanner] = useState(null);
+  const [generateModal, setGenerateModal] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [verified, setVerified] = useState(false);
   const [scanned, setScanned] = useState(false);
-  const [iE, setShowImportExport] = useState(false);
-  const [db, setDB] = useState('');
+  const [ref,setRef] = useState();
 
   var svg = useRef();
   const viewRef = useRef();
 
+  //====================  HANDLE CODE  =====================//
   const handleCode = () => {
     let token = generateToken(JSON.stringify({name, num}));
     let data = {
@@ -40,9 +37,13 @@ const MainMenu = ({navigation}) => {
     };
     saveToken(token);
     setFinalData(JSON.stringify(data));
-    setShowGenerate(false);
+    setGenerateModal(false);
     setShowQR(true);
   };
+
+
+ 
+  //====================  GET PERMISSION  =====================//
   const getPermissionAndroid = async () => {
     try {
       const granted = await PermissionsAndroid.request(
@@ -68,8 +69,13 @@ const MainMenu = ({navigation}) => {
     }
   };
 
+
+
+
+
+  //====================  DOWNLOAD IMAGE  =====================//
   const downloadImage = async () => {
-    console.log('Downloading image...')
+    console.log('Downloading image...');
     try {
       const uri = await captureRef(viewRef, {
         format: 'png',
@@ -82,18 +88,15 @@ const MainMenu = ({navigation}) => {
       }
       const image = CameraRoll.save(uri, 'photo');
       if (image) {
-        Alert.alert(
-          '',
-          'Image saved successfully.',
-          [{text: 'OK', onPress: () => {}}],
-          {cancelable: false},
-        );
+        ToastAndroid.show('Se guardó el codigo en la galeria', 300);
       }
     } catch (error) {
       console.log('error', error);
     }
   };
 
+
+//====================  HANDLE SCAN  =====================//
   const handleScan = e => {
     let data = JSON.parse(e.data);
     verifyToken(data.token)
@@ -102,17 +105,18 @@ const MainMenu = ({navigation}) => {
       })
       .then(() => {
         removeToken(data.token);
-        setShowScanner(false);
+        console.log(data)
         setScanned(true);
       });
   };
+
 
   return (
     <View style={styles.root}>
       <Button
         buttonStyle={styles.g_btn}
         onPress={() => {
-          navigation.navigate("Generate")
+          setGenerateModal(true);
         }}
         title="Generar Codigo"
       />
@@ -120,7 +124,7 @@ const MainMenu = ({navigation}) => {
         buttonStyle={styles.s_btn}
         title="Escanear Codigo"
         onPress={() => {
-          navigation.navigate("Scan")
+          setShowScanner(true);
         }}
       />
       <Button
@@ -130,46 +134,56 @@ const MainMenu = ({navigation}) => {
           setShowImportExport(true);
         }}
       />
+
+      {/* GENERATE MODAL */}
       <Modal
         animationType="slide"
         transparent={true}
-        visible={showGenerate}
+        visible={generateModal}
         onRequestClose={() => {
-          setShowGenerate(false);
+          setShowGenerateModal(false);
         }}>
         <View style={styles.centeredView}>
           <View style={styles.modalView}>
             <TextInput
               placeholder="Nombre"
               value={name}
-              onChangeText={n => {
-                setName(n);
-              }}
               style={styles.input}
+              onChangeText={t => {
+                setName(t);
+              }}
             />
             <TextInput
-              value={num}
-              onChangeText={n => {
-                setNum(n);
-              }}
-              style={styles.input}
               placeholder="Cantidad"
+              value={num}
+              style={styles.input}
+              onChangeText={num => {
+                setNum(num);
+              }}
               keyboardType="numeric"
             />
             <Button
+              buttonStyle={[
+                styles.g_btn,
+                {marginBottom: 10, marginTop: 10, width: 300},
+              ]}
+              title="Generar"
               onPress={() => {
                 handleCode();
               }}
-              title="Generar Codigo"
             />
           </View>
         </View>
       </Modal>
+
+      {/* QR MODAL */}
       <Modal
         animationType="slide"
         transparent={true}
         visible={showQR}
         onRequestClose={() => {
+          setNum(null);
+          setName('');
           setShowQR(false);
         }}>
         <View style={styles.centeredView}>
@@ -185,55 +199,9 @@ const MainMenu = ({navigation}) => {
           </TouchableWithoutFeedback>
         </View>
       </Modal>
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={showScanner}
-        onRequestClose={() => {
-          setShowScanner(false);
-        }}>
-        <View style={styles.centeredView}>
-          <View style={styles.modalView}>
-            <QRCodeScanner
-              onRead={e => {
-                handleScan(e);
-              }}
-            />
-          </View>
-        </View>
-      </Modal>
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={scanned}
-        onRequestClose={() => {
-          setScanned(false);
-        }}>
-        <TouchableWithoutFeedback
-          onPress={() => {
-            setScanned(false);
-          }}>
-          <View style={styles.centeredView}>
-            <View
-              style={[
-                styles.modalView,
-                {
-                  backgroundColor: verified ? 'green' : 'red',
-                  width: 300,
-                  height: 300,
-                },
-              ]}>
-              {verified ? (
-                <Text style={styles.verifiedText}>Verificado!</Text>
-              ) : (
-                <Text style={styles.verifiedText}>
-                  Codigo usado o inexistente!
-                </Text>
-              )}
-            </View>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+
+      
+      {/* IMPORT/EXPORT MODAL */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -264,6 +232,7 @@ const MainMenu = ({navigation}) => {
                 buttonStyle={styles.ieBtn}
                 onPress={() => {
                   exportDB();
+                  setShowImportExport(false);
                 }}
                 title="Exportar"
               />
@@ -271,9 +240,67 @@ const MainMenu = ({navigation}) => {
           </View>
         </View>
       </Modal>
+
+      {/* SCANNER MODAL */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showScanner}
+        onRequestClose={() => {
+          setShowScanner(false);
+        }}>
+        <View style={styles.centeredView}>
+          <View style={styles.modalView}>
+            <QRCodeScanner
+              ref={node => {
+                setRef(node);
+              }}
+              onRead={e => {
+                handleScan(e);
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
+      
+      {/* SCANNED MODAL */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={scanned}
+        onRequestClose={() => {
+          setScanned(false);
+        }}>
+        <TouchableWithoutFeedback
+          onPress={() => {
+            setScanned(false);
+            ref.reactivate()
+          }}>
+          <View style={styles.centeredView}>
+            <View
+              style={[
+                styles.modalView,
+                {
+                  backgroundColor: verified ? 'green' : 'red',
+                  width: 300,
+                  height: 300,
+                },
+              ]}>
+              {verified ? (
+                <Text style={styles.verifiedText}>Verificado!</Text>
+              ) : (
+                <Text style={styles.verifiedText}>
+                  Codigo usado o inexistente!
+                </Text>
+              )}
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
     </View>
   );
-};
+};;
 
 const styles = StyleSheet.create({
   root: {
@@ -327,6 +354,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   input: {
+    backgroundColor: '#e8e8e8',
     width: 250,
     height: 40,
     margin: 12,
@@ -344,12 +372,7 @@ const styles = StyleSheet.create({
   codeHeader: {
     color: '#000',
   },
-  verifiedText: {
-    textAlign: 'center',
-    color: 'black',
-    fontSize: 32,
-    fontWeight: 'bold',
-  },
+
   i_btn: {
     height: 50,
     backgroundColor: 'blue',
@@ -363,6 +386,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: 'center',
     marginRight: 15,
+  },
+  verifiedText: {
+    textAlign: 'center',
+    color: 'black',
+    fontSize: 32,
+    fontWeight: 'bold',
   },
 });
 

@@ -24,6 +24,7 @@ const MainMenu = () => {
       })
       .then(() => {
         removeToken(data.token);
+        console.log(data)
         setScanned(true);
       });
   };
